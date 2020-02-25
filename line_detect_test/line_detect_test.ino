@@ -15,6 +15,9 @@
 // I'm not sure why, all the documentation goes against this. I found the last 3 by trial and error
 // A5 and A4 are the thumbwheels that we'll remove anyway for our pcb design
 
+// voltage decreases when light is reflected, so when the white line is seen, those sensors will have a lower value
+
+
 int array[10] = {A3,A2,A1,A0,8,7,11,6,A5,A4};
 
 // the setup function runs once when you press reset or power the board
