@@ -14,7 +14,7 @@ ISR(TIMER0_OVF_vect){ //interrupt called when timer0 overflows
   
   if(MS_L != old_MS_L){
     OCR0A = (MS_L*max_speed*255);
-    OCR0B = (MS_L*max_speed*255);
+    OCR0B = 128;
     old_MS_L = MS_L;
   }
   
@@ -106,14 +106,14 @@ int main(void)
 
     sei(); //enable interrupts
   timer0_init(); //set up timers
-  // timer1_init();
+  //timer1_init();
 
   //Initialise LED
-  DDRE |= (1<<6);
+  // DDRE |= (1<<6);
 
   while(1){
     //Toggle Light
-    PORTE ^= (1<<6);
+    // PORTE ^= (1<<6);
 
     //Change Motor Speeds
     MS_L += 0.1;
