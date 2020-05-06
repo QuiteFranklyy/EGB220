@@ -21,11 +21,13 @@
 //    } 
 //  }
 //}
-
-//#include <softwareserial.h>
+#include "SoftwareSerial.h"
 
 int turn_around_counter = 0;
-#include "SoftwareSerial.h"
+bool debug_movement = true;
+bool debug_wing_sensors = true;
+
+
 SoftwareSerial MyBlue(0, 1); // RX | TX   
 // creates a "virtual" serial port/UART
 // connect BT module TX to D10
@@ -34,15 +36,17 @@ SoftwareSerial MyBlue(0, 1); // RX | TX
 
 void basicLineFollowing(){
     // basic line following
+  // we are using sensor 3 and sensor 4 for line following (PF6 and PF7)
+  //
   
-//     read ADC11
+//     read ADC6
     ADMUX &= 0b11100000;
-    ADMUX |= 0b00000011;
-    ADMUX &= 0b11111011;
-    ADCSRB |= (1<<5);
+    ADMUX |= 0b00000110;
+//    ADMUX &= 0b11111011;
+    ADCSRB |= 0;
     ADCSRA |= (1<<ADSC);
     while(~ADCSRA&(1<<ADIF)){}
-    int sensor_out_A = ADCH;
+    int sensor_out_B = ADCH;
 //    if (sensor_out_A >100){
 //    OCR0B = 200;
 //  } else {
@@ -54,7 +58,7 @@ void basicLineFollowing(){
   ADCSRB = 0;
   ADCSRA |= (1<<ADSC);
   while(~ADCSRA&(1<<ADIF)){}
-    int sensor_out_B = ADCH;
+  int sensor_out_A = ADCH;
   //  if (sensor_out_B > 100){
   //    OCR0A = 200;
   //  } else {
@@ -62,24 +66,60 @@ void basicLineFollowing(){
   //  }
 
 
+  // we are using sensor 1 and sensor 8 for start/finish/curve/slow detection
+  // these are PF4 (ADC4) and PD4 (ADC8)
+  
+  // read ADC4
+  ADMUX &= 0b11100000;
+  ADMUX |= 0b00000100;
+  ADCSRB = 0;
+  ADCSRA |= (1<<ADSC);
+  while(~ADCSRA&(1<<ADIF)){}
+  int left_wing_sensor = ADCH;
+
+  // read ADC8
+  ADMUX &= 0b11100000;
+  ADMUX |= 0b00000000;
+  ADCSRB |= (1<<MUX5);
+  while(~ADCSRA&(1<<ADIF)){}
+  int right_wing_sensor = ADCH;
+
+  if (debug_wing_sensors){
+    MyBlue.write("Left Wing Sensor: ");
+    MyBlue.write(left_wing_sensor);
+    MyBlue.write("\n");
+    MyBlue.write("Right Wing Sensor: ");
+    MyBlue.write(right_wing_sensor);
+    MyBlue.write("\n");
+  }
+
+  
 // now we are reading a black line, instead of a white line, so swap accordingly
     if (sensor_out_A > 40 && sensor_out_B > 40){
       OCR0A = 200;
       OCR0B = 200;
-      MyBlue.write("FORWARD\n");
+      if (debug_movement){
+        MyBlue.write("FORWARD\n");
+      }
     } else if (sensor_out_A < 40 && sensor_out_B < 40) {
       OCR0B = 255;
       OCR0A = 255;
       turn_around_counter++;
-      MyBlue.write("STOP\n");
+      if (debug_movement){
+        MyBlue.write("STOP\n");
+      }
     }  else if (sensor_out_B < 40) {
       OCR0B = 200;
       OCR0A = 255;
-      MyBlue.write("TURN LEFT\n");
+      if (debug_movement){
+        MyBlue.write("TURN LEFT\n");
+      }
     } else if (sensor_out_A < 40) {
       OCR0A = 200;
       OCR0B = 255;
-      MyBlue.write("TURN RIGHT\n");
+      if (debug_movement){
+        MyBlue.write("TURN RIGHT\n");
+      }
     }
 }
 
@@ -186,7 +226,6 @@ int main(void){
   OCR0A = 150;
   OCR0B = 150;
 //  OCR1B = 150;
-
 
   while(1){
     if(turn_around_counter >= 2000){
