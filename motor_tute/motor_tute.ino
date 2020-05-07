@@ -27,6 +27,10 @@ int turn_around_counter = 0;
 bool debug_movement = true;
 bool debug_wing_sensors = true;
 
+enum movement{forward, left, right, stopped, backwards};
+
+enum movement last_movement = stopped;
+enum movement current_movement = stopped;
 
 SoftwareSerial MyBlue(0, 1); // RX | TX   
 // creates a "virtual" serial port/UART
@@ -43,7 +47,7 @@ void basicLineFollowing(){
     ADMUX &= 0b11100000;
     ADMUX |= 0b00000110;
 //    ADMUX &= 0b11111011;
-    ADCSRB |= 0;
+    ADCSRB = 0;
     ADCSRA |= (1<<ADSC);
     while(~ADCSRA&(1<<ADIF)){}
     int sensor_out_B = ADCH;
@@ -86,11 +90,11 @@ void basicLineFollowing(){
 
   if (debug_wing_sensors){
     MyBlue.write("Left Wing Sensor: ");
-    MyBlue.write(left_wing_sensor);
+    MyBlue.print(sensor_out_A,DEC);
     MyBlue.write("\n");
-    MyBlue.write("Right Wing Sensor: ");
-    MyBlue.write(right_wing_sensor);
-    MyBlue.write("\n");
+//    MyBlue.write("Right Wing Sensor: ");
+//    MyBlue.print(sensor_out_B,DEC);
+//    MyBlue.write("\n");
   }
 
   
@@ -98,29 +102,56 @@ void basicLineFollowing(){
     if (sensor_out_A > 40 && sensor_out_B > 40){
       OCR0A = 200;
       OCR0B = 200;
-      if (debug_movement){
-        MyBlue.write("FORWARD\n");
-      }
+      current_movement = forward;
+//      if (debug_movement){
+//        MyBlue.write("FORWARD\n");
+//      }
     } else if (sensor_out_A < 40 && sensor_out_B < 40) {
       OCR0B = 255;
       OCR0A = 255;
       turn_around_counter++;
-      if (debug_movement){
-        MyBlue.write("STOP\n");
-      }
+      current_movement = stopped;
+//      if (debug_movement){
+//        MyBlue.write("STOP\n");
+//      }
     }  else if (sensor_out_B < 40) {
       OCR0B = 200;
       OCR0A = 255;
-      if (debug_movement){
-        MyBlue.write("TURN LEFT\n");
-      }
+      current_movement = left;
+//      if (debug_movement){
+//        MyBlue.write("TURN LEFT\n");
+//      }
     } else if (sensor_out_A < 40) {
       OCR0A = 200;
       OCR0B = 255;
-      if (debug_movement){
-        MyBlue.write("TURN RIGHT\n");
-      }
+      current_movement = right;
+//      if (debug_movement){
+//        MyBlue.write("TURN RIGHT\n");
+//      }
     }
+    print_movement();
+}
+
+void print_movement(){
+  if (current_movement != last_movement){
+    last_movement = current_movement;
+    switch (current_movement){
+      case forward:
+      MyBlue.write("Forward");
+
+      case left:
+      MyBlue.write("Left");
+
+      case right:
+      MyBlue.write("Right");
+
+      case stopped:
+      MyBlue.write("Stop");
+
+      case backwards:
+      MyBlue.write("Backwards");
+    }
+  }
 }
 
 void turnAround(){
@@ -216,6 +247,8 @@ int main(void){
   // set the D port to output for motor forward
   DDRD |= 1;
 
+  
+
 //  TCCR1A |= (1<<7)|(1<<5)|(1<<1)|1;
 //  TCCR1A |= (1<<6)|(1<<4);
 //  TCCR1B |= (1<<2);
@@ -228,14 +261,14 @@ int main(void){
 //  OCR1B = 150;
 
   while(1){
-    if(turn_around_counter >= 2000){
-      turnAround();
+//    if(turn_around_counter >= 2000){
+//      turnAround();
       while(1){
         basicLineFollowing();
       }
-    } else {
-      basicLineFollowing();
-    }
+//    } else {
+//      basicLineFollowing();
+//    }
 //    spinAround();
     
   }
