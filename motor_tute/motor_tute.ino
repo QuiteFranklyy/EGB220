@@ -22,6 +22,7 @@
 //  }
 //}
 #include "SoftwareSerial.h"
+//#include <HardwareSerial.h>
 
 int turn_around_counter = 0;
 bool debug_movement = true;
@@ -32,7 +33,8 @@ enum movement{forward, left, right, stopped, backwards};
 enum movement last_movement = stopped;
 enum movement current_movement = stopped;
 
-SoftwareSerial MyBlue(0, 1); // RX | TX   
+SoftwareSerial MyBlue(0, 1); // RX | TX 
+//HardwareSerial MyBlue(1);  
 // creates a "virtual" serial port/UART
 // connect BT module TX to D10
 // connect BT module RX to D11
@@ -85,16 +87,17 @@ void basicLineFollowing(){
   ADMUX &= 0b11100000;
   ADMUX |= 0b00000000;
   ADCSRB |= (1<<MUX5);
+  ADCSRA |= (1<<ADSC);
   while(~ADCSRA&(1<<ADIF)){}
   int right_wing_sensor = ADCH;
 
   if (debug_wing_sensors){
-    MyBlue.write("Left Wing Sensor: ");
-    MyBlue.print(sensor_out_A,DEC);
-    MyBlue.write("\n");
-//    MyBlue.write("Right Wing Sensor: ");
-//    MyBlue.print(sensor_out_B,DEC);
+//    MyBlue.write("Left Wing Sensor: ");
+//    MyBlue.print(sensor_out_A,DEC);
 //    MyBlue.write("\n");
+    MyBlue.write("Right Wing Sensor: ");
+    MyBlue.print(right_wing_sensor,DEC);
+    MyBlue.write("\n");
   }
 
   
@@ -233,6 +236,7 @@ PORTB |= (0<<0);
 
 int main(void){
   MyBlue.begin(9600);
+//  MyBlue.begin(9600, SERIAL_8N1, 0, 1);
   // setup the two middle sensors for input
   ADMUX |= (1<<REFS1)|(1<<REFS0)|(1<<ADLAR);
   ADCSRA |= (1<<ADEN)|(1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0);
