@@ -40,6 +40,23 @@ SoftwareSerial MyBlue(0, 1); // RX | TX
 // connect BT module RX to D11
 // connect BT Vcc to 5V, GND to GND
 
+enum getSection(int[] array) {
+  int max = 0
+  for (int i=0;i<3;i++) {
+    if (array[i] > max) {
+      max = i
+    }
+  }
+  switch (max) {
+    case 0:
+      return left;
+    case 1:
+      return forward;
+    case 2:
+      return right;
+  }
+}
+
 int direction_array[3];
 
 void add_direction_array(int direction){
