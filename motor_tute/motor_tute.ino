@@ -25,13 +25,19 @@
 //#include <HardwareSerial.h>
 
 int turn_around_counter = 0;
-bool debug_movement = true;
+bool debug_movement = false;
 bool debug_wing_sensors = true;
 
-enum movement{forward, left, right, stopped, backwards};
+enum movement{left, forward, right, stopped, backwards};
 
 enum movement last_movement = stopped;
 enum movement current_movement = stopped;
+
+int direction_array[5];
+
+movement map_array[100];
+int map_array_counter = 0;
+bool read_curvature_mark = false;
 
 SoftwareSerial MyBlue(0, 1); // RX | TX 
 //HardwareSerial MyBlue(1);  
@@ -40,14 +46,46 @@ SoftwareSerial MyBlue(0, 1); // RX | TX
 // connect BT module RX to D11
 // connect BT Vcc to 5V, GND to GND
 
-enum getSection(int[] array) {
-  int max = 0
-  for (int i=0;i<3;i++) {
-    if (array[i] > max) {
-      max = i
+
+void printMap(){
+  MyBlue.print('[');
+  for (int i = 0; i <= map_array_counter; i++){
+    MyBlue.print(map_array[i]);
+    if (i < map_array_counter - 1){
+      MyBlue.print(',');
     }
   }
-  switch (max) {
+  MyBlue.println(']');
+}
+
+void printDirArray(){
+  MyBlue.print('[');
+  for (int i = 0; i < 3; i++){
+    MyBlue.print(direction_array[i]);
+    if (i < 2){
+      MyBlue.print(',');
+    }
+  }
+  MyBlue.println(']');
+}
+
+void convertDirectionPercent(){
+  double sum = direction_array[0] + direction_array[1] + direction_array[2];
+  for (int i = 0; i < 3; i++){
+    direction_array[i] = (int) direction_array[i] / sum * 100;
+  }
+}
+
+movement getSection(int in_array[]) {
+  int max_pos = 0;
+  int max_value = 0;
+  for (int i=0;i<3;i++) {
+    if (in_array[i] > max_value) {
+      max_pos = i;
+      max_value = in_array[i];
+    }
+  }
+  switch (max_pos) {
     case 0:
       return left;
     case 1:
@@ -57,21 +95,76 @@ enum getSection(int[] array) {
   }
 }
 
-int direction_array[3];
-
-void add_direction_array(int direction){
-  switch(direction){
+void addDirectionArray(int direction_a){
+  switch(direction_a){
     case forward:
     direction_array[1] = direction_array[1] + 1;
+//    MyBlue.print('F');
+    break;
     case left:
     direction_array[0] = direction_array[0] + 1;
+//    MyBlue.print('L');
+    break;
     case right:
     direction_array[2] = direction_array[2] + 1;
+//    MyBlue.print('R');
+    break;
   }
+//  MyBlue.print(" ");
 }
 
-void clear_direction_array(){
-  memset(direction_array,0,3);
+void clearDirectionArray(){
+  memset(direction_array,0,4);
+}
+
+void mappingCheckAndCalc(){
+  // also don't want the sensor to fire a bunch of times when it reads one line
+  //  have a bool that toggles on when it first reads the curvature mark, then off when it goes back to white
+    // we are using sensor 1 and sensor 8 for start/finish/curve/slow detection
+  // these are PF4 (ADC4) and PD4 (ADC8)
+  
+//  // read ADC4
+//  ADMUX &= 0b11100000;
+//  ADMUX |= 0b00000100;
+//  ADCSRB = 0;
+//  ADCSRA |= (1<<ADSC);
+//  while(~ADCSRA&(1<<ADIF)){}
+//  int right_wing_sensor = ADCH;
+
+  // read ADC8
+  ADMUX &= 0b11100000;
+  ADMUX |= 0b00000000;
+  ADCSRB |= (1<<MUX5);
+  ADCSRA |= (1<<ADSC);
+  while(~ADCSRA&(1<<ADIF)){}
+  int left_wing_sensor = ADCH;
+
+  if (debug_wing_sensors){
+//    MyBlue.write("Right Wing Sensor: ");
+//    MyBlue.print(right_wing_sensor,DEC);
+//    MyBlue.write("\n");
+//    MyBlue.write("Left Wing Sensor: ");
+//    MyBlue.print(left_wing_sensor,DEC);
+//    MyBlue.write("\n");
+  }
+  if (left_wing_sensor > 220 && read_curvature_mark == false){
+    convertDirectionPercent();
+    printDirArray();
+    read_curvature_mark = true;
+    map_array[map_array_counter] = getSection(direction_array);
+    printMap();
+    clearDirectionArray();
+    MyBlue.println(map_array[map_array_counter], DEC);
+    map_array_counter++;
+  } else if(left_wing_sensor < 50 && read_curvature_mark == true){
+    read_curvature_mark = false;
+  }
+  
+  // check the wing sensor
+  // if wing sensor above threshold
+  //  call the get section, passing the array into it
+  // append the value from get section to the map array
+  // reset all relevant values
 }
 
 void basicLineFollowing(){
@@ -106,33 +199,6 @@ void basicLineFollowing(){
   //  }
 
 
-  // we are using sensor 1 and sensor 8 for start/finish/curve/slow detection
-  // these are PF4 (ADC4) and PD4 (ADC8)
-  
-  // read ADC4
-  ADMUX &= 0b11100000;
-  ADMUX |= 0b00000100;
-  ADCSRB = 0;
-  ADCSRA |= (1<<ADSC);
-  while(~ADCSRA&(1<<ADIF)){}
-  int left_wing_sensor = ADCH;
-
-  // read ADC8
-  ADMUX &= 0b11100000;
-  ADMUX |= 0b00000000;
-  ADCSRB |= (1<<MUX5);
-  ADCSRA |= (1<<ADSC);
-  while(~ADCSRA&(1<<ADIF)){}
-  int right_wing_sensor = ADCH;
-
-  if (debug_wing_sensors){
-//    MyBlue.write("Left Wing Sensor: ");
-//    MyBlue.print(sensor_out_A,DEC);
-//    MyBlue.write("\n");
-    MyBlue.write("Right Wing Sensor: ");
-    MyBlue.print(right_wing_sensor,DEC);
-    MyBlue.write("\n");
-  }
 
   
 // now we are reading a black line, instead of a white line, so swap accordingly
@@ -166,7 +232,10 @@ void basicLineFollowing(){
 //        MyBlue.write("TURN RIGHT\n");
 //      }
     }
-    print_movement();
+    addDirectionArray(current_movement);
+    if (debug_movement){
+      print_movement();
+    }
 }
 
 void print_movement(){
@@ -174,19 +243,24 @@ void print_movement(){
     last_movement = current_movement;
     switch (current_movement){
       case forward:
-      MyBlue.write("Forward");
+      MyBlue.println("Forward");
+      break;
 
       case left:
-      MyBlue.write("Left");
+      MyBlue.println("Left");
+      break;
 
       case right:
-      MyBlue.write("Right");
+      MyBlue.println("Right");
+      break;
 
       case stopped:
-      MyBlue.write("Stop");
+      MyBlue.println("Stop");
+      break;
 
       case backwards:
-      MyBlue.write("Backwards");
+      MyBlue.println("Backwards");
+      break;
     }
   }
 }
@@ -298,6 +372,7 @@ int main(void){
   OCR0B = 150;
   while(1){
     basicLineFollowing();
+    mappingCheckAndCalc();
 
   }
 
