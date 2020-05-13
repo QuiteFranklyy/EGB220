@@ -40,6 +40,23 @@ SoftwareSerial MyBlue(0, 1); // RX | TX
 // connect BT module RX to D11
 // connect BT Vcc to 5V, GND to GND
 
+int direction_array[3];
+
+void add_direction_array(int direction){
+  switch(direction){
+    case forward:
+    direction_array[1] = direction_array[1] + 1;
+    case left:
+    direction_array[0] = direction_array[0] + 1;
+    case right:
+    direction_array[2] = direction_array[2] + 1;
+  }
+}
+
+void clear_direction_array(){
+  memset(direction_array,0,3);
+}
+
 void basicLineFollowing(){
     // basic line following
   // we are using sensor 3 and sensor 4 for line following (PF6 and PF7)
@@ -207,8 +224,8 @@ void spinAround(){
 
 
 //  DDRB |= (1<<6)|(1<<5);
-PORTE |= (1<<6);
-PORTB |= (0<<0);
+  PORTE |= (1<<6);
+  PORTB |= (0<<0);
 
 //  TCCR1A |= (1<<7)|(1<<5)|1;
 //  TCCR1B |= (1<<3);
@@ -262,19 +279,9 @@ int main(void){
   TCCR0B |= (1<<2);
   OCR0A = 150;
   OCR0B = 150;
-//  OCR1B = 150;
-
   while(1){
-//    if(turn_around_counter >= 2000){
-//      turnAround();
-      while(1){
-        basicLineFollowing();
-      }
-//    } else {
-//      basicLineFollowing();
-//    }
-//    spinAround();
-    
+    basicLineFollowing();
+
   }
 
 
