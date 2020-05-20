@@ -25,15 +25,19 @@
 //#include <HardwareSerial.h>
 
 int turn_around_counter = 0;
-bool debug_movement = false;
-bool debug_wing_sensors = true;
+bool debug_movement = true;
+bool debug_wing_sensors = false;
 
 enum movement{left, forward, right, stopped, backwards};
 
 enum movement last_movement = stopped;
 enum movement current_movement = stopped;
 
+bool robot_running = true;
+int right_wing_counter = 0;
+
 int direction_array[5];
+int percent_direction_array[5];
 
 movement map_array[100];
 int map_array_counter = 0;
@@ -111,6 +115,12 @@ void addDirectionArray(int direction_a){
     break;
   }
 //  MyBlue.print(" ");
+
+  // calculate and store percent array
+  double sum = direction_array[0] + direction_array[1] + direction_array[2];
+  for (int i = 0; i < 3; i++){
+    percent_direction_array[i] = (int) direction_array[i] / sum * 100;
+  }
 }
 
 void clearDirectionArray(){
@@ -123,30 +133,42 @@ void mappingCheckAndCalc(){
     // we are using sensor 1 and sensor 8 for start/finish/curve/slow detection
   // these are PF4 (ADC4) and PD4 (ADC8)
   
-//  // read ADC4
-//  ADMUX &= 0b11100000;
-//  ADMUX |= 0b00000100;
-//  ADCSRB = 0;
-//  ADCSRA |= (1<<ADSC);
-//  while(~ADCSRA&(1<<ADIF)){}
-//  int right_wing_sensor = ADCH;
+  // read ADC4
+  ADMUX &= 0b11011111;
+  ADMUX &= 0b11100000;
+  ADMUX |= 0b00000100;
+  ADCSRB = 0;
+  ADCSRA |= (1<<ADSC);
+  while(~ADCSRA&(1<<ADIF)){}
+  int right_wing_sensor = ADCL;
+  int temp = ADCH;
+  ADMUX |= 0b00100000;
 
   // read ADC8
+//  ADMUX &= !(1<<ADLAR);
+//  
   ADMUX &= 0b11100000;
   ADMUX |= 0b00000000;
   ADCSRB |= (1<<MUX5);
   ADCSRA |= (1<<ADSC);
   while(~ADCSRA&(1<<ADIF)){}
   int left_wing_sensor = ADCH;
+//  temp = ADCL;
+//  ADMUX |= (1<<ADLAR);
+//  
 
   if (debug_wing_sensors){
-//    MyBlue.write("Right Wing Sensor: ");
-//    MyBlue.print(right_wing_sensor,DEC);
-//    MyBlue.write("\n");
+    MyBlue.write("Right Wing Sensor: ");
+    MyBlue.print(right_wing_sensor,DEC);
+//    MyBlue.print("      ");
 //    MyBlue.write("Left Wing Sensor: ");
 //    MyBlue.print(left_wing_sensor,DEC);
 //    MyBlue.write("\n");
   }
+
+// based on current percentages in direction array, adjust speed
+  
+  
   if (left_wing_sensor > 220 && read_curvature_mark == false){
     convertDirectionPercent();
     printDirArray();
@@ -158,6 +180,21 @@ void mappingCheckAndCalc(){
     map_array_counter++;
   } else if(left_wing_sensor < 50 && read_curvature_mark == true){
     read_curvature_mark = false;
+  }
+
+  if (right_wing_sensor > 250){
+    right_wing_counter++;
+    if (right_wing_counter > 80){
+      robot_running = false;
+    }
+    // stop the robot
+    
+//    OCR0B = 255;
+//    OCR0A = 255;
+  } else {
+    if (right_wing_counter > 0){
+      right_wing_counter--;
+    }
   }
   
   // check the wing sensor
@@ -187,6 +224,7 @@ void basicLineFollowing(){
 //  }
 
   // read ADC7
+  ADMUX &= 0b11100000;
   ADMUX |= 0b00000111;
   ADCSRB = 0;
   ADCSRA |= (1<<ADSC);
@@ -203,8 +241,8 @@ void basicLineFollowing(){
   
 // now we are reading a black line, instead of a white line, so swap accordingly
     if (sensor_out_A > 40 && sensor_out_B > 40){
-      OCR0A = 200;
-      OCR0B = 200;
+      OCR0A = 255 - (100 * percent_direction_array[1] / 100);
+      OCR0B = 255 - (100 * percent_direction_array[1] / 100);
       current_movement = forward;
 //      if (debug_movement){
 //        MyBlue.write("FORWARD\n");
@@ -233,9 +271,9 @@ void basicLineFollowing(){
 //      }
     }
     addDirectionArray(current_movement);
-    if (debug_movement){
-      print_movement();
-    }
+//    if (debug_movement){
+//      print_movement();
+//    }
 }
 
 void print_movement(){
@@ -267,6 +305,7 @@ void print_movement(){
 
 void turnAround(){
   bool foundLine = false;
+
   
 
   while(!foundLine){
@@ -299,45 +338,45 @@ void turnAround(){
 
 
 
-void spinAround(){
-// //set the B port to output for motor forward
-  DDRB |= (1<<7);
-
-  // set the D port to output for motor forward
-  DDRD |= 1;
-
-//  // set the B port to output for motor backward
-//  DDRB |= (1<<6);
+//void spinAround(){
+//// //set the B port to output for motor forward
+//  DDRB |= (1<<7);
+//
+//  // set the D port to output for motor forward
+//  DDRD |= 1;
+//
+////  // set the B port to output for motor backward
+////  DDRB |= (1<<6);
+////  
+//
+//// // set the B port for motor backward
+////  DDRB |= (1<<5);
+//
+//
+////  DDRB |= (1<<6)|(1<<5);
+//  PORTE |= (1<<6);
+//  PORTB |= (0<<0);
+//
+////  TCCR1A |= (1<<7)|(1<<5)|1;
+////  TCCR1B |= (1<<3);
+////  TIMSK1 |= (1<<0); ////enable overflow interrupt
+////  OCR1A = 255;
+////  OCR1B = 0;
+////  TCCR1B |= (1<<2);
 //  
-
-// // set the B port for motor backward
-//  DDRB |= (1<<5);
-
-
-//  DDRB |= (1<<6)|(1<<5);
-  PORTE |= (1<<6);
-  PORTB |= (0<<0);
-
-//  TCCR1A |= (1<<7)|(1<<5)|1;
-//  TCCR1B |= (1<<3);
-//  TIMSK1 |= (1<<0); ////enable overflow interrupt
-//  OCR1A = 255;
-//  OCR1B = 0;
-//  TCCR1B |= (1<<2);
-  
-  
-  
-//  TCCR0A |= (1<<7)|(1<<5)|(1<<1)|1;
-//  TCCR0A |= (1<<6)|(1<<4);
-//  TCCR0B |= (1<<2);
-  OCR0A = 150;
-  OCR0B = 150;
-  
-  while(1){
-    
-  }
-  
-}
+//  
+//  
+////  TCCR0A |= (1<<7)|(1<<5)|(1<<1)|1;
+////  TCCR0A |= (1<<6)|(1<<4);
+////  TCCR0B |= (1<<2);
+//  OCR0A = 150;
+//  OCR0B = 150;
+//  
+//  while(1){
+//    
+//  }
+//  
+//}
 
 
 
@@ -370,11 +409,15 @@ int main(void){
   TCCR0B |= (1<<2);
   OCR0A = 150;
   OCR0B = 150;
-  while(1){
+  
+  while(robot_running){
     basicLineFollowing();
     mappingCheckAndCalc();
 
+
   }
+  OCR0A = 255;
+  OCR0B = 255;
 
 
 
